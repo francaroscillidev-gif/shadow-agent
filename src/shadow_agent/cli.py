@@ -39,6 +39,14 @@ def start(
     uvicorn.run(server_app, host=host, port=port, log_level="info")
 
 @app.command()
+def monitor(
+    audit_file: str = typer.Option("shadow_audit.jsonl", help="Path to audit log file")
+):
+    """Launch real-time live terminal dashboard monitoring privacy metrics."""
+    from shadow_agent.monitor import start_monitor
+    start_monitor(audit_file)
+
+@app.command()
 def test_mask(
     text: str = typer.Argument(..., help="Sample prompt to test entity detection and masking")
 ):

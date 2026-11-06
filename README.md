@@ -43,6 +43,12 @@ uv run shadow-agent start --port 8080
 
 Il proxy sarà attivo su: `http://127.0.0.1:8080/v1`
 
+### 4. Monitor Live da Terminale (TUI)
+In una nuova finestra di terminale, visualizza in tempo reale le transazioni, i segreti intercettati e le metriche di latenza:
+```bash
+uv run shadow-agent monitor
+```
+
 ---
 
 ## 🔌 Utilizzo con Client & IDE
