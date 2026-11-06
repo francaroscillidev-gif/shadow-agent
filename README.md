@@ -14,6 +14,7 @@
   - Indirizzi IPv4
   - Carte di credito
   - Codici IBAN
+- **Code & Database Guard**: Riconosce e maschera URI di connessione a database (`postgres://`, `mysql://`, `mongodb://`, `redis://`), password SQL hardcoded e nomi di tabelle/schemi sensibili proprietari (`*_prod`, `*_secrets`, `*_billing`, `*_finance`).
 - **Synthetic Replacement**: Invece di `[TOKEN_1]`, sostituisce i dati con valori realistici e coerenti (`user_1@example-sandbox.org`, `10.0.0.1`), mantenendo naturale il contesto per il modello.
 - **Local Semantic LRU Cache**: Memorizza in-memory le risposte dei prompt sanitizzati con hashing SHA-256 e TTL. Elimina chiamate cloud duplicate, tagliando a zero la latenza e i costi per prompt ricorrenti.
 - **Streaming De-anonymization Resiliente**: Buffer a finestra scorrevole che ricostruisce i dati originali in tempo reale via Server-Sent Events (SSE) anche se i token vengono spezzati su chunk HTTP differenti.

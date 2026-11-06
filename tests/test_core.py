@@ -87,3 +87,19 @@ def test_semantic_cache():
     assert hit is not None
     assert hit["choices"][0]["message"]["content"] == "Hi there!"
     assert cache.stats()["total_cache_hits"] == 1
+
+def test_code_obfuscator():
+    from shadow_agent.engine.code_guard import CodeObfuscator
+    vault = EphemeralVault()
+    obfuscator = CodeObfuscator(use_synthetic=True)
+    deanonymizer = DeAnonymizer(vault)
+
+    code = "conn = postgresql://admin:superSecret123@prod-db.internal.corp:5432/finance_db\nSELECT * FROM user_secrets"
+    masked, entities = obfuscator.detect_and_mask(code, vault)
+
+    assert "superSecret123" not in masked
+    assert "user_secrets" not in masked
+    assert "mock_pass" in masked
+
+    restored = deanonymizer.restore_batch(masked)
+    assert restored == code

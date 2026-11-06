@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from shadow_agent.core.config import ServerConfig, load_config
 from shadow_agent.core.vault import EphemeralVault
 from shadow_agent.engine.masker import MaskingEngine
+from shadow_agent.engine.code_guard import CodeObfuscator
 from shadow_agent.engine.deanonymizer import DeAnonymizer
 from shadow_agent.router.policy_router import Router
 from shadow_agent.storage.audit import AuditLogger
@@ -25,6 +26,7 @@ def create_app(config: ServerConfig = None) -> FastAPI:
 
     vault = EphemeralVault(ttl_seconds=3600)
     masker = MaskingEngine(use_synthetic=config.privacy.synthetic_replacement)
+    code_guard = CodeObfuscator(use_synthetic=config.privacy.synthetic_replacement)
     deanonymizer = DeAnonymizer(vault)
     router = Router(config)
     audit = AuditLogger(config.audit_log_path)
@@ -74,8 +76,14 @@ def create_app(config: ServerConfig = None) -> FastAPI:
         for msg in messages:
             content = msg.get("content")
             if isinstance(content, str):
+                # Standard PII & Secret Masking
                 masked_content, detected = masker.mask(content, vault)
                 total_masked_entities.extend(detected)
+                
+                # Code & Database Connection Masking
+                masked_content, code_detected = code_guard.detect_and_mask(masked_content, vault)
+                total_masked_entities.extend(code_detected)
+
                 sanitized_messages.append({**msg, "content": masked_content})
             else:
                 sanitized_messages.append(msg)
