@@ -1,0 +1,26 @@
+# Default configuration for Shadow Agent
+host: "127.0.0.1"
+port: 8080
+audit_log_path: "shadow_audit.jsonl"
+
+upstream:
+  cloud_url: "https://api.openai.com/v1"
+  cloud_default_model: "gpt-4o-mini"
+  local_url: "http://localhost:11434/v1"
+  local_default_model: "qwen2.5-coder:7b"
+
+privacy:
+  mask_api_keys: true
+  mask_emails: true
+  mask_ip_addresses: true
+  mask_credit_cards: true
+  mask_jwt_tokens: true
+  mask_ibans: true
+  synthetic_replacement: true
+  auto_route_to_local_if_unmaskable: true
+  force_local_keywords:
+    - "top-secret"
+    - "proprietary algorithm"
+    - "confidential internal"
+    - "patient record"
+    - "brevetto non depositato"
