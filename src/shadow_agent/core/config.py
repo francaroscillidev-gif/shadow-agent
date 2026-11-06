@@ -22,6 +22,7 @@ class PrivacyPolicy(BaseModel):
     mask_ibans: bool = True
     synthetic_replacement: bool = True  # Use realistic synthetic values instead of [TOKEN]
     custom_patterns: Dict[str, str] = Field(default_factory=dict)
+    enable_cache: bool = True  # Local semantic cache
     
     # Auto routing rules
     auto_route_to_local_if_unmaskable: bool = True

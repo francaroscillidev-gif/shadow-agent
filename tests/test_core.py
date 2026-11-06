@@ -69,3 +69,21 @@ def test_airgap_routing():
     )
     assert dest_airgap == "local"
     assert meta_airgap["risk_level"] == "CRITICAL"
+
+def test_semantic_cache():
+    from shadow_agent.storage.cache import SemanticCache
+    cache = SemanticCache()
+
+    model = "gpt-4o-mini"
+    messages = [{"role": "user", "content": "Hello world"}]
+    payload = {"choices": [{"message": {"content": "Hi there!"}}]}
+
+    # Initially empty
+    assert cache.get(model, messages) is None
+
+    # Set and retrieve
+    cache.set(model, messages, payload)
+    hit = cache.get(model, messages)
+    assert hit is not None
+    assert hit["choices"][0]["message"]["content"] == "Hi there!"
+    assert cache.stats()["total_cache_hits"] == 1

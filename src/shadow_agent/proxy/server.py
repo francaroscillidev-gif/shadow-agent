@@ -11,6 +11,7 @@ from shadow_agent.engine.masker import MaskingEngine
 from shadow_agent.engine.deanonymizer import DeAnonymizer
 from shadow_agent.router.policy_router import Router
 from shadow_agent.storage.audit import AuditLogger
+from shadow_agent.storage.cache import SemanticCache
 
 def create_app(config: ServerConfig = None) -> FastAPI:
     if config is None:
@@ -27,6 +28,7 @@ def create_app(config: ServerConfig = None) -> FastAPI:
     deanonymizer = DeAnonymizer(vault)
     router = Router(config)
     audit = AuditLogger(config.audit_log_path)
+    cache = SemanticCache() if config.privacy.enable_cache else None
     client = httpx.AsyncClient(timeout=120.0)
 
     @app.get("/health")
@@ -34,6 +36,7 @@ def create_app(config: ServerConfig = None) -> FastAPI:
         return {
             "status": "active",
             "active_vault_entries": len(vault.get_all_mappings()),
+            "cache_stats": cache.stats() if cache else {"status": "disabled"},
             "cloud_upstream": config.upstream.cloud_url,
             "local_upstream": config.upstream.local_url
         }
@@ -90,13 +93,24 @@ def create_app(config: ServerConfig = None) -> FastAPI:
         if destination == "local":
             upstream_url = f"{config.upstream.local_url.rstrip('/')}/chat/completions"
             auth_header = f"Bearer {config.upstream.local_api_key}"
-            # For purely local routing, we can send original or masked based on preference.
-            # Local is considered secure, but masked by default provides Defense-in-Depth.
             payload_messages = sanitized_messages
         else:
             upstream_url = f"{config.upstream.cloud_url.rstrip('/')}/chat/completions"
             auth_header = f"Bearer {config.upstream.cloud_api_key or ''}"
             payload_messages = sanitized_messages
+
+        # Check Cache before upstream dispatch for non-streaming requests
+        if not is_stream and cache:
+            cached_resp = cache.get(effective_model, sanitized_messages)
+            if cached_resp:
+                # De-anonymize cached response with current session's vault
+                data = json.loads(json.dumps(cached_resp))
+                if "choices" in data:
+                    for choice in data["choices"]:
+                        if "message" in choice and "content" in choice["message"]:
+                            choice["message"]["content"] = deanonymizer.restore_batch(choice["message"]["content"])
+                data["_shadow_cached"] = True
+                return JSONResponse(content=data)
 
         forward_body = {
             **body,
@@ -166,6 +180,10 @@ def create_app(config: ServerConfig = None) -> FastAPI:
                     return JSONResponse(status_code=resp.status_code, content=resp.json() if resp.headers.get("content-type") == "application/json" else {"error": resp.text})
 
                 data = resp.json()
+
+                # Save raw sanitized response to cache
+                if cache and "choices" in data:
+                    cache.set(effective_model, sanitized_messages, data)
                 
                 # De-anonymize output choices
                 if "choices" in data:

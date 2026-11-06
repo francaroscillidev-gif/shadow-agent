@@ -15,6 +15,7 @@
   - Carte di credito
   - Codici IBAN
 - **Synthetic Replacement**: Invece di `[TOKEN_1]`, sostituisce i dati con valori realistici e coerenti (`user_1@example-sandbox.org`, `10.0.0.1`), mantenendo naturale il contesto per il modello.
+- **Local Semantic LRU Cache**: Memorizza in-memory le risposte dei prompt sanitizzati con hashing SHA-256 e TTL. Elimina chiamate cloud duplicate, tagliando a zero la latenza e i costi per prompt ricorrenti.
 - **Streaming De-anonymization Resiliente**: Buffer a finestra scorrevole che ricostruisce i dati originali in tempo reale via Server-Sent Events (SSE) anche se i token vengono spezzati su chunk HTTP differenti.
 - **Intelligent Air-Gap Routing**: Se il prompt contiene parole chiave critiche o una densità eccessiva di dati riservati, la richiesta viene reindirizzata automaticamente su un motore locale (Ollama / vLLM / llama.cpp).
 - **Audit Log Locale Immutabile**: Traccia le metriche di mascheramento e l'hash SHA-256 della richiesta su file `.jsonl` locale senza mai registrare i dati sensibili in chiaro.
