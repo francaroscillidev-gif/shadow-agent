@@ -9,10 +9,13 @@ from shadow_agent.core.config import ServerConfig, load_config
 from shadow_agent.core.vault import EphemeralVault
 from shadow_agent.engine.masker import MaskingEngine
 from shadow_agent.engine.code_guard import CodeObfuscator
+from shadow_agent.engine.injection_guard import InjectionGuard
 from shadow_agent.engine.deanonymizer import DeAnonymizer
 from shadow_agent.router.policy_router import Router
 from shadow_agent.storage.audit import AuditLogger
 from shadow_agent.storage.cache import SemanticCache
+from pathlib import Path
+from fastapi.responses import HTMLResponse, FileResponse
 
 def create_app(config: ServerConfig = None) -> FastAPI:
     if config is None:
@@ -21,17 +24,57 @@ def create_app(config: ServerConfig = None) -> FastAPI:
     app = FastAPI(
         title="Shadow Agent Proxy",
         description="Local Privacy Guard & Masking Proxy for LLMs",
-        version="0.1.0"
+        version="0.2.0"
     )
 
     vault = EphemeralVault(ttl_seconds=3600)
     masker = MaskingEngine(use_synthetic=config.privacy.synthetic_replacement)
     code_guard = CodeObfuscator(use_synthetic=config.privacy.synthetic_replacement)
+    injection_guard = InjectionGuard()
     deanonymizer = DeAnonymizer(vault)
     router = Router(config)
     audit = AuditLogger(config.audit_log_path)
     cache = SemanticCache() if config.privacy.enable_cache else None
     client = httpx.AsyncClient(timeout=120.0)
+
+    static_dir = Path(__file__).parent.parent / "static"
+    assets_dir = Path(__file__).parent.parent.parent.parent / "assets"
+
+    @app.get("/assets/icon.svg")
+    async def get_icon():
+        icon_path = assets_dir / "icon.svg"
+        if icon_path.exists():
+            return FileResponse(icon_path, media_type="image/svg+xml")
+        raise HTTPException(status_code=404, detail="Icon not found")
+
+    @app.get("/dashboard", response_class=HTMLResponse)
+    async def get_dashboard():
+        dash_path = static_dir / "dashboard.html"
+        if dash_path.exists():
+            return dash_path.read_text(encoding="utf-8")
+        return "<h1>Dashboard template not found</h1>"
+
+    @app.post("/api/preview-mask")
+    async def preview_mask(request: Request):
+        body = await request.json()
+        raw_text = body.get("text", "")
+
+        # 1. Injection scan
+        is_threat, threat_score, threats = injection_guard.scan(raw_text)
+
+        # 2. Masking
+        masked, entities = masker.mask(raw_text, vault)
+        masked, code_entities = code_guard.detect_and_mask(masked, vault)
+        all_entities = entities + code_entities
+
+        return {
+            "original_text": raw_text,
+            "masked_text": masked,
+            "is_injection_threat": is_threat,
+            "threat_score": threat_score,
+            "threats": threats,
+            "entities": [{"entity_type": e.entity_type, "original": e.original_value} for e in all_entities]
+        }
 
     @app.get("/health")
     async def health():
@@ -69,13 +112,19 @@ def create_app(config: ServerConfig = None) -> FastAPI:
         is_stream = body.get("stream", False)
         requested_model = body.get("model", "shadow-auto")
 
-        # 1. Masking Phase
+        # 1. Masking & Threat Phase
         total_masked_entities = []
         sanitized_messages = []
+        detected_threats = []
 
         for msg in messages:
             content = msg.get("content")
             if isinstance(content, str):
+                # Prompt Injection & Jailbreak check
+                is_threat, threat_score, threats = injection_guard.scan(content)
+                if is_threat:
+                    detected_threats.extend(threats)
+
                 # Standard PII & Secret Masking
                 masked_content, detected = masker.mask(content, vault)
                 total_masked_entities.extend(detected)
@@ -87,6 +136,23 @@ def create_app(config: ServerConfig = None) -> FastAPI:
                 sanitized_messages.append({**msg, "content": masked_content})
             else:
                 sanitized_messages.append(msg)
+
+        # Block or Air-gap if prompt injection is detected
+        if detected_threats:
+            audit.log_transaction(
+                request_id=req_id,
+                destination="blocked",
+                model="shield-block",
+                entities_masked=len(total_masked_entities),
+                entity_types=[t["category"] for t in detected_threats],
+                route_meta={"reason": "Prompt Injection / Jailbreak Attempt", "risk_level": "CRITICAL"},
+                raw_prompt_preview=str(messages[:1]),
+                latency_ms=(time.time() - start_time) * 1000
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=f"Security Violation: Adversarial Prompt Injection or Jailbreak detected ({detected_threats[0]['category']}). Request blocked by Shadow Agent."
+            )
 
         # 2. Intelligent Routing Phase
         destination, target_model, route_meta = router.inspect_and_route(messages, len(total_masked_entities))

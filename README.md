@@ -10,7 +10,16 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/francaroscillidev-gif/shadow-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+">
+  <img src="https://img.shields.io/badge/docker-ready-2496ED.svg?logo=docker&logoColor=white" alt="Docker Ready">
+  <img src="https://img.shields.io/badge/compliance-GDPR%20%7C%20HIPAA%20%7C%20SOC2-34D399.svg" alt="Compliance Ready">
+  <img src="https://img.shields.io/badge/latency-%3C%201ms-brightgreen.svg" alt="Latency">
+</p>
+
+<p align="center">
   <a href="#-caratteristiche-principali">Caratteristiche</a> •
+  <a href="#-web-dashboard--playground">Web Dashboard</a> •
   <a href="#-avvio-rapido">Avvio Rapido</a> •
   <a href="#-monitor-live-da-terminale-tui">Live Monitor</a> •
   <a href="#-docker--air-gapped-stack">Docker Stack</a> •
@@ -29,6 +38,7 @@
   - Indirizzi IPv4
   - Carte di credito
   - Codici IBAN
+- **Active Prompt Injection & Jailbreak Defense**: Blocca al volo tentativi di instruction override (`ignore previous instructions`), delimiter smuggling (`<system>`), e jailbreak prima che arrivino al modello.
 - **Code & Database Guard**: Riconosce e maschera URI di connessione a database (`postgres://`, `mysql://`, `mongodb://`, `redis://`), password SQL hardcoded e nomi di tabelle/schemi sensibili proprietari (`*_prod`, `*_secrets`, `*_billing`, `*_finance`).
 - **Synthetic Replacement**: Invece di `[TOKEN_1]`, sostituisce i dati con valori realistici e coerenti (`user_1@example-sandbox.org`, `10.0.0.1`), mantenendo naturale il contesto per il modello.
 - **Local Semantic LRU Cache**: Memorizza in-memory le risposte dei prompt sanitizzati con hashing SHA-256 e TTL. Elimina chiamate cloud duplicate, tagliando a zero la latenza e i costi per prompt ricorrenti.
@@ -59,7 +69,16 @@ uv run shadow-agent start --port 8080
 
 Il proxy sarà attivo su: `http://127.0.0.1:8080/v1`
 
-### 4. Monitor Live da Terminale (TUI)
+### 4. Web Dashboard & Interactive Playground
+Apri il browser su:
+```
+http://127.0.0.1:8080/dashboard
+```
+Per visualizzare in tempo reale:
+- Metriche live delle chiavi effimere e hit della Semantic Cache.
+- Playground interattivo "Before / After Masking" con simulazione del rilevamento di Prompt Injection.
+
+### 5. Monitor Live da Terminale (TUI)
 In una nuova finestra di terminale, visualizza in tempo reale le transazioni, i segreti intercettati e le metriche di latenza:
 ```bash
 uv run shadow-agent monitor
