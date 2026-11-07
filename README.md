@@ -50,6 +50,23 @@ In una nuova finestra di terminale, visualizza in tempo reale le transazioni, i 
 uv run shadow-agent monitor
 ```
 
+### 5. Genera Report di Audit & Compliance (GDPR / HIPAA / SOC2)
+Genera un report esecutivo HTML con statistiche complete sulle entità mascherate, latenze e certificazioni di conformità:
+```bash
+uv run shadow-agent report --output report.html
+```
+
+---
+
+## 🐳 Docker & Air-Gapped Stack
+
+Puoi avviare l'intero stack isolato (Shadow Agent + Ollama locale integrato) tramite Docker Compose:
+
+```bash
+docker compose up -d
+```
+Il proxy risponderà su `http://localhost:8080/v1` e Ollama su `http://localhost:11434/v1`.
+
 ---
 
 ## 🔌 Utilizzo con Client & IDE

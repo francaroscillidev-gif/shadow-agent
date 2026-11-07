@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  shadow-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shadow-agent-proxy
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - UPSTREAM_BASE_URL=https://api.openai.com/v1
+      - UPSTREAM_API_KEY=${OPENAI_API_KEY:-}
+      - LOCAL_LLM_URL=http://ollama-airgap:11434/v1
+    volumes:
+      - ./shadow_agent.yaml:/app/shadow_agent.yaml
+      - ./audit_data:/app/data
+    depends_on:
+      - ollama-airgap
+    networks:
+      - shadow-net
+
+  ollama-airgap:
+    image: ollama/ollama:latest
+    container_name: shadow-ollama-local
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - shadow-net
+
+volumes:
+  ollama_models:
+    driver: local
+
+networks:
+  shadow-net:
+    driver: bridge

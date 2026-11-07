@@ -47,6 +47,17 @@ def monitor(
     start_monitor(audit_file)
 
 @app.command()
+def report(
+    audit_file: str = typer.Option("shadow_audit.jsonl", help="Path to audit log file"),
+    output: str = typer.Option("shadow_compliance_report.html", help="HTML report output path")
+):
+    """Generate executive compliance and governance audit report (GDPR/HIPAA/SOC2)."""
+    from shadow_agent.storage.compliance import ComplianceReporter
+    reporter = ComplianceReporter(audit_file)
+    out = reporter.generate_html_report(output)
+    console.print(f"[bold green]✔ Compliance Report successfully generated:[/bold green] [cyan]{out}[/cyan]")
+
+@app.command()
 def test_mask(
     text: str = typer.Argument(..., help="Sample prompt to test entity detection and masking")
 ):

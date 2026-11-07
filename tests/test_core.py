@@ -1,6 +1,7 @@
 """Tests for Masking, Streaming De-anonymization, and Ephemeral Vault."""
 import pytest
 import asyncio
+from pathlib import Path
 from shadow_agent.core.vault import EphemeralVault
 from shadow_agent.engine.masker import MaskingEngine
 from shadow_agent.engine.deanonymizer import DeAnonymizer
@@ -103,3 +104,19 @@ def test_code_obfuscator():
 
     restored = deanonymizer.restore_batch(masked)
     assert restored == code
+
+def test_compliance_reporter(tmp_path):
+    from shadow_agent.storage.compliance import ComplianceReporter
+    log_file = tmp_path / "test_audit.jsonl"
+    log_file.write_text('{"timestamp": 12345, "destination": "cloud", "model": "gpt-4o", "entities_masked_count": 2, "entity_types": ["EMAIL", "IPV4"], "risk_level": "LOW", "latency_ms": 12.5}\n')
+    
+    reporter = ComplianceReporter(str(log_file))
+    summary = reporter.analyze()
+    assert summary["total_transactions"] == 1
+    assert summary["total_entities_masked"] == 2
+    assert summary["entity_breakdown"]["EMAIL"] == 1
+
+    html_file = tmp_path / "report.html"
+    out = reporter.generate_html_report(str(html_file))
+    assert Path(out).exists()
+    assert "Shadow Agent" in html_file.read_text()
