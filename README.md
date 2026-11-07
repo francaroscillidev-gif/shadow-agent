@@ -1,6 +1,21 @@
-# 🛡️ Shadow Agent — Local Privacy Guard & LLM Masking Proxy
+<p align="center">
+  <img src="assets/icon.svg" alt="Shadow Agent Icon" width="160" height="160" />
+</p>
 
-**Shadow Agent** è un proxy/sidecar locale ultra-veloce compatibile con l'API di OpenAI (`/v1/chat/completions`) che intercetta i dati sensibili prima di inviarli agli LLM cloud (Gemini, Claude, GPT), consentendo di operare in conformità con GDPR, HIPAA e policy aziendali.
+<h1 align="center">🛡️ Shadow Agent</h1>
+
+<p align="center">
+  <strong>Local Privacy Guard & High-Performance Masking Proxy for LLMs</strong><br>
+  <em>Zero Data-Leakage • Sub-Millisecond AST Masking • Air-Gapped Fallback • GDPR/HIPAA Ready</em>
+</p>
+
+<p align="center">
+  <a href="#-caratteristiche-principali">Caratteristiche</a> •
+  <a href="#-avvio-rapido">Avvio Rapido</a> •
+  <a href="#-monitor-live-da-terminale-tui">Live Monitor</a> •
+  <a href="#-docker--air-gapped-stack">Docker Stack</a> •
+  <a href="#-contact-support--commercial-inquiries">Contatti</a>
+</p>
 
 ---
 
