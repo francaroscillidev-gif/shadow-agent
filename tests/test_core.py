@@ -135,3 +135,22 @@ def test_injection_guard():
     assert is_threat
     assert score >= 0.85
     assert any(t["category"] in ("INSTRUCTION_OVERRIDE", "SYSTEM_PROMPT_LEAK") for t in threats)
+
+def test_multimodal_guard():
+    from shadow_agent.engine.multimodal import MultimodalGuard
+    guard = MultimodalGuard(allow_images=False)
+
+    multimodal_msg = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Analyze this screenshot"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/sensitive_doc.png"}}
+            ]
+        }
+    ]
+
+    has_img, count, warnings = guard.inspect_messages(multimodal_msg)
+    assert has_img is True
+    assert count == 1
+    assert len(warnings) > 0
