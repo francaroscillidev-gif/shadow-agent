@@ -11,6 +11,7 @@ from shadow_agent.engine.masker import MaskingEngine
 from shadow_agent.engine.code_guard import CodeObfuscator
 from shadow_agent.engine.injection_guard import InjectionGuard
 from shadow_agent.engine.deanonymizer import DeAnonymizer
+from shadow_agent.proxy.anthropic_adapter import AnthropicAdapter
 from shadow_agent.router.policy_router import Router
 from shadow_agent.storage.audit import AuditLogger
 from shadow_agent.storage.cache import SemanticCache
@@ -32,6 +33,7 @@ def create_app(config: ServerConfig = None) -> FastAPI:
     code_guard = CodeObfuscator(use_synthetic=config.privacy.synthetic_replacement)
     injection_guard = InjectionGuard()
     deanonymizer = DeAnonymizer(vault)
+    anthropic_adapter = AnthropicAdapter(vault, masker, code_guard, injection_guard, deanonymizer)
     router = Router(config)
     audit = AuditLogger(config.audit_log_path)
     cache = SemanticCache() if config.privacy.enable_cache else None
@@ -97,6 +99,68 @@ def create_app(config: ServerConfig = None) -> FastAPI:
                 {"id": config.upstream.local_default_model, "object": "model", "owned_by": "local-ollama"},
             ]
         }
+
+    @app.post("/v1/messages")
+    async def anthropic_messages(request: Request):
+        """Native Anthropic Claude API Messages endpoint with transparent masking."""
+        start_time = time.time()
+        req_id = str(uuid.uuid4())
+
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+        forward_body, total_masked, threats = anthropic_adapter.sanitize_request(body)
+
+        if threats:
+            audit.log_transaction(
+                request_id=req_id,
+                destination="blocked",
+                model="shield-block-anthropic",
+                entities_masked=len(total_masked),
+                entity_types=[t["category"] for t in threats],
+                route_meta={"reason": "Prompt Injection in Anthropic Request", "risk_level": "CRITICAL"},
+                raw_prompt_preview=str(body.get("messages", [])[:1]),
+                latency_ms=(time.time() - start_time) * 1000
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=f"Security Violation: Adversarial Prompt Injection detected ({threats[0]['category']})."
+            )
+
+        # Forward to Anthropic upstream or local fallback
+        anthropic_url = "https://api.anthropic.com/v1/messages"
+        anthropic_headers = {
+            "x-api-key": request.headers.get("x-api-key") or config.upstream.cloud_api_key or "",
+            "anthropic-version": request.headers.get("anthropic-version", "2023-06-01"),
+            "content-type": "application/json"
+        }
+
+        try:
+            resp = await client.post(anthropic_url, json=forward_body, headers=anthropic_headers)
+            latency = (time.time() - start_time) * 1000
+
+            audit.log_transaction(
+                request_id=req_id,
+                destination="anthropic",
+                model=forward_body.get("model", "claude"),
+                entities_masked=len(total_masked),
+                entity_types=[e.entity_type for e in total_masked],
+                route_meta={"reason": "Anthropic Claude dispatch", "risk_level": "LOW"},
+                raw_prompt_preview=str(body.get("messages", [])[:1]),
+                latency_ms=latency
+            )
+
+            if resp.status_code != 200:
+                return JSONResponse(status_code=resp.status_code, content=resp.json() if resp.headers.get("content-type") == "application/json" else {"error": resp.text})
+
+            data = resp.json()
+            restored_data = anthropic_adapter.restore_response(data)
+            return JSONResponse(content=restored_data)
+
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Anthropic upstream communication error: {str(e)}")
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):

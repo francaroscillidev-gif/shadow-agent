@@ -31,6 +31,8 @@
 ## ⚡ Caratteristiche Principali
 
 - **Drop-in OpenAI Compatible**: Usa lo standard `/v1/chat/completions` — funziona immediatamente con Cursor, Continue, LangChain, LlamaIndex o qualsiasi SDK.
+- **Native Anthropic Messages API**: Supporta l'endpoint nativo `/v1/messages` per client Anthropic Claude (Claude Desktop, cursor-claude, SDK `@anthropic-ai/sdk`), sanitizzando sia `system` che i blocchi di contenuto.
+- **Native Shadow Python SDK**: Client leggero `ShadowClient` per integrare il proxy nelle pipeline Python con context manager e zero configurazioni di rete complesse.
 - **Sub-millisecond Masking**: Riconoscimento ed espunzione istantanea di:
   - Chiavi API (OpenAI, AWS, generiche)
   - Token JWT

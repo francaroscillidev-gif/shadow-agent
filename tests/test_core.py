@@ -154,3 +154,45 @@ def test_multimodal_guard():
     assert has_img is True
     assert count == 1
     assert len(warnings) > 0
+
+def test_anthropic_adapter():
+    from shadow_agent.proxy.anthropic_adapter import AnthropicAdapter
+    from shadow_agent.engine.code_guard import CodeObfuscator
+    from shadow_agent.engine.injection_guard import InjectionGuard
+    from shadow_agent.engine.masker import MaskingEngine
+    from shadow_agent.engine.deanonymizer import DeAnonymizer
+
+    vault = EphemeralVault()
+    masker = MaskingEngine(use_synthetic=True)
+    code_guard = CodeObfuscator(use_synthetic=True)
+    injection_guard = InjectionGuard()
+    deanonymizer = DeAnonymizer(vault)
+
+    adapter = AnthropicAdapter(vault, masker, code_guard, injection_guard, deanonymizer)
+
+    anthropic_req = {
+        "model": "claude-3-5-sonnet-20241022",
+        "system": "You are a secure assistant.",
+        "messages": [
+            {"role": "user", "content": "Help dev@corporate.com connect to 192.168.1.50"}
+        ]
+    }
+
+    forward_body, masked, threats = adapter.sanitize_request(anthropic_req)
+    assert len(threats) == 0
+    assert len(masked) == 2
+    assert "dev@corporate.com" not in forward_body["messages"][0]["content"]
+
+    # Test restoration on response block
+    email_placeholder = None
+    for ph, orig in vault.get_all_mappings().items():
+        if orig == "dev@corporate.com":
+            email_placeholder = ph
+            break
+
+    assert email_placeholder is not None
+    anthropic_resp = {
+        "content": [{"type": "text", "text": f"Connected user {email_placeholder} successfully."}]
+    }
+    restored = adapter.restore_response(anthropic_resp)
+    assert "dev@corporate.com" in restored["content"][0]["text"]
